@@ -35,7 +35,7 @@ class BillingService(
             val result = billInvoice(invoice)
             if (result is Either.Left) {
                 if (result.value is BillInvoiceError.PaymentError.FailedToCharge) {
-                    logger.warn { "FailedToCharge invoice with ID=${invoice.id}. Stopping the charging process for all customers unprocessed invoices" }
+                    logger.warn { "FailedToCharge invoice with ID=${invoice.id}. Stopping the charging process for all unprocessed invoices belonging to customer with ID=${invoice.customerId}" }
                     break
                 } else {
                     logger.warn { "Error occurred while billing the invoice with ID=${invoice.id} for customer with ID=${invoice.customerId}. Reason: ${result.value}" }
