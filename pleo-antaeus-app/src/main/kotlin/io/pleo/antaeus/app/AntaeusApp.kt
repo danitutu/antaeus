@@ -21,6 +21,8 @@ import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.quartz.*
+import org.quartz.impl.StdSchedulerFactory
 import setupInitialData
 import java.io.File
 import java.sql.Connection
@@ -61,11 +63,31 @@ fun main() {
     val customerService = CustomerService(dal = dal)
 
     // This is _your_ billing service to be included where you see fit
-    val billingService = BillingService(paymentProvider = paymentProvider)
+    val billingService = BillingService(paymentProvider, invoiceService)
+
+    val startOfMonthTrigger = createStartOfMonthTrigger()
+
+    val billingJob = createBillingJob(billingService)
+
+    val scheduler = StdSchedulerFactory.getDefaultScheduler()
+    scheduler.start()
+
+    scheduler.scheduleJob(billingJob, startOfMonthTrigger)
 
     // Create REST web service
     AntaeusRest(
         invoiceService = invoiceService,
         customerService = customerService
     ).run()
+}
+
+private fun createStartOfMonthTrigger() = TriggerBuilder.newTrigger()
+    .withSchedule(CronScheduleBuilder.cronSchedule(System.getenv("BILLING_JOB_CRON")))
+    .build()
+
+private fun createBillingJob(billingService: BillingService): JobDetail {
+    val jobDetail: JobDetail = JobBuilder.newJob(BillingJob::class.java)
+        .build()
+    jobDetail.jobDataMap["billingService"] = billingService
+    return jobDetail
 }
